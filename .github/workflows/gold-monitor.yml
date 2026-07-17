@@ -1,0 +1,56 @@
+name: Gold Price Monitor
+
+on:
+  schedule:
+    # รันทุก 5 นาที (ขั้นต่ำที่ GitHub อนุญาต)
+    # หมายเหตุ: บางช่วงที่ GitHub คนใช้เยอะ อาจดีเลย์ได้บ้าง เป็นเรื่องปกติ
+    - cron: "*/5 * * * *"
+  # กดรันเองได้จากแท็บ Actions เพื่อทดสอบ
+  workflow_dispatch:
+
+# ต้องให้สิทธิ์ write เพื่อ commit ไฟล์ state.json กลับ repo
+permissions:
+  contents: write
+
+# กันไม่ให้ 2 รอบทำงานทับกัน
+concurrency:
+  group: gold-monitor
+  cancel-in-progress: false
+
+jobs:
+  check-price:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run gold monitor
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # ปรับเกณฑ์ได้ที่ Settings > Secrets and variables > Actions > Variables
+          # ถ้าไม่ตั้ง จะใช้ค่า default ในโค้ด (ขยับ >= 100 บาท)
+          GOLD_TYPE: ${{ vars.GOLD_TYPE }}
+          MOVE_THRESHOLD: ${{ vars.MOVE_THRESHOLD }}
+          MOVE_PERCENT: ${{ vars.MOVE_PERCENT }}
+        run: python main.py
+
+      - name: Commit state if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain state.json)" ]]; then
+            git add state.json
+            git commit -m "chore: update state [skip ci]"
+            git push
+          else
+            echo "ไม่มีการเปลี่ยนแปลง state"
+          fi
