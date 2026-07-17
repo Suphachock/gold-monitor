@@ -32,18 +32,36 @@ import requests
 from datetime import datetime
 
 # ============ ตั้งค่าตรงนี้ ============
+def env_str(key, default):
+    """อ่าน env แบบ string — ถ้าไม่มีหรือว่าง ให้ใช้ default"""
+    v = os.environ.get(key, "")
+    return v.strip() if v.strip() else default
+
+
+def env_float(key, default):
+    """อ่าน env แบบตัวเลข — ถ้าไม่มี/ว่าง/แปลงไม่ได้ ให้ใช้ default"""
+    v = os.environ.get(key, "").strip()
+    if not v:
+        return float(default)
+    try:
+        return float(v)
+    except ValueError:
+        print(f"!! ค่า {key}={v!r} ไม่ใช่ตัวเลข ใช้ค่า default {default} แทน")
+        return float(default)
+
+
 # อ่านจาก Environment (GitHub Secrets) — อย่าใส่ token ตรงๆ ในไฟล์ที่ push ขึ้น GitHub!
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 
 # เลือกชนิดทองที่จะเฝ้า: "HSH" (ราคาฮั่วเซ่งเฮง), "REF" (อ้างอิง/สมาคม), "JEWEL" (รูปพรรณ)
-GOLD_TYPE = os.environ.get("GOLD_TYPE", "HSH")
+GOLD_TYPE = env_str("GOLD_TYPE", "HSH")
 
 # ==== เกณฑ์ "ขยับแรง" ====
 # เตือนเมื่อราคาขยับจากราคาอ้างอิงเกิน "จำนวนบาท" นี้ (0 = ปิดการใช้เกณฑ์บาท)
-MOVE_THRESHOLD = float(os.environ.get("MOVE_THRESHOLD", 100))
+MOVE_THRESHOLD = env_float("MOVE_THRESHOLD", 100)
 # หรือเตือนเมื่อขยับเกิน "เปอร์เซ็นต์" นี้ (0 = ปิดการใช้เกณฑ์ %)
-MOVE_PERCENT = float(os.environ.get("MOVE_PERCENT", 0))
+MOVE_PERCENT = env_float("MOVE_PERCENT", 0)
 # ใช้เกณฑ์ไหนก็ได้ที่ถึงก่อน (เข้าเงื่อนไขข้อใดข้อหนึ่งก็เตือน)
 
 API_URL = "https://apicheckprice.huasengheng.com/api/values/getprice/"
