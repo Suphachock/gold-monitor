@@ -1,11 +1,8 @@
 name: Gold Price Monitor
 
 on:
-  schedule:
-    # รันทุก 5 นาที (ขั้นต่ำที่ GitHub อนุญาต)
-    # หมายเหตุ: บางช่วงที่ GitHub คนใช้เยอะ อาจดีเลย์ได้บ้าง เป็นเรื่องปกติ
-    - cron: "*/5 * * * *"
-  # กดรันเองได้จากแท็บ Actions เพื่อทดสอบ
+  # กระตุ้นจากภายนอก (cron-job.org) และกดรันเองได้จากแท็บ Actions
+  # หมายเหตุ: ไม่ใช้ schedule ของ GitHub แล้ว เพราะดีเลย์บ่อย -> ใช้ cron-job.org ยิงแทน
   workflow_dispatch:
 
 # ต้องให้สิทธิ์ write เพื่อ commit ไฟล์ state.json กลับ repo
