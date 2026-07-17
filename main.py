@@ -106,6 +106,21 @@ def fmt(n):
     return f"{n:,.0f}"
 
 
+# ชื่อเดือนไทยแบบย่อ (index 1-12)
+TH_MONTHS = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+             "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+
+
+def fmt_time(iso_str):
+    """แปลง '2026-07-17T23:35:14' -> '17 ก.ค. 2569 · 23:35 น.' (ปี พ.ศ.)"""
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        return (f"{dt.day} {TH_MONTHS[dt.month]} {dt.year + 543} · "
+                f"{dt.hour:02d}:{dt.minute:02d} น.")
+    except (ValueError, TypeError):
+        return iso_str or "-"
+
+
 def load_state():
     """โหลดสถานะจากไฟล์ (ถ้าไม่มี ให้เริ่มต้นใหม่)"""
     try:
@@ -174,16 +189,14 @@ def check_once():
     new_anchor_buy = anchor_buy
     if is_big_move(delta, anchor):
         if delta > 0:
-            # ทองขึ้น = น่าขาย -> โชว์ราคาร้านรับซื้อคืนก่อน
+            # ทองขึ้น -> โชว์ราคาร้านรับซื้อคืนก่อน
             bar, word, trend = "🟢🟢🟢🟢🟢", "ทองพุ่งขึ้น", "📈"
-            hint = "💡 จังหวะน่าขาย"
             main_label, main_price, main_delta, main_anchor = \
                 "ร้านรับซื้อคืน", shop_buy, delta_buy, anchor_buy
             sub_label, sub_price = "ราคาขายออก", shop_sell
         else:
-            # ทองลง = น่าซื้อ -> โชว์ราคาขายออกก่อน
+            # ทองลง -> โชว์ราคาขายออกก่อน
             bar, word, trend = "🔴🔴🔴🔴🔴", "ทองร่วงลง", "📉"
-            hint = "💡 จังหวะน่าซื้อ"
             main_label, main_price, main_delta, main_anchor = \
                 "ราคาขายออก", shop_sell, delta, anchor
             sub_label, sub_price = "ร้านรับซื้อคืน", shop_buy
@@ -200,9 +213,8 @@ def check_once():
             f"     <b>{main_delta:+,.0f}</b> บาท  ({pct:+.2f}%)\n"
             f"     <i>จาก {fmt(main_anchor)}</i>\n"
             f"\n"
-            f"{hint}\n"
             f"🏪 {sub_label}: {fmt(sub_price)} บาท\n"
-            f"🕐 {html.escape(updated)}"
+            f"🕐 {html.escape(fmt_time(updated))}"
         )
         new_anchor = shop_sell       # เลื่อนอ้างอิงมาที่ราคาปัจจุบัน
         new_anchor_buy = shop_buy
