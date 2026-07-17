@@ -133,7 +133,8 @@ def is_big_move(delta, anchor):
 def check_once():
     """เช็คราคา 1 ครั้ง แล้วแจ้งเตือนถ้าราคาขยับแรงจากราคาอ้างอิง"""
     state = load_state()
-    anchor = state.get("anchor")  # ราคาอ้างอิงล่าสุด (Sell)
+    anchor = state.get("anchor")            # ราคาอ้างอิง Sell (ตัวทริกเกอร์)
+    anchor_buy = state.get("anchor_buy")    # ราคาอ้างอิง Buy (ไว้โชว์เปลี่ยนแปลง)
 
     prices = fetch_prices()
     row = prices.get(GOLD_TYPE)
@@ -152,38 +153,64 @@ def check_once():
         print(f"[{ts}] ตั้งราคาอ้างอิงเริ่มต้น (Sell) = {fmt(shop_sell)}")
         save_state({
             "anchor": shop_sell,
+            "anchor_buy": shop_buy,
             "last_sell": shop_sell,
             "last_buy": shop_buy,
             "last_check": datetime.now().isoformat(timespec="seconds"),
         })
         return
 
-    delta = shop_sell - anchor
+    if anchor_buy is None:
+        anchor_buy = shop_buy  # เผื่อ state เก่าที่ยังไม่มี anchor_buy
+
+    delta = shop_sell - anchor           # การขยับฝั่งขายออก (ตัวทริกเกอร์)
+    delta_buy = shop_buy - anchor_buy    # การขยับฝั่งรับซื้อคืน
     print(f"[{ts}] {GOLD_TYPE}  Sell={fmt(shop_sell)}  Buy={fmt(shop_buy)}  "
           f"อ้างอิง={fmt(anchor)}  ขยับ={delta:+,.0f}  upd={updated}")
     print(f"     เกณฑ์: ขยับ >= {fmt(MOVE_THRESHOLD)} บาท"
           + (f" หรือ >= {MOVE_PERCENT}%" if MOVE_PERCENT > 0 else ""))
 
     new_anchor = anchor
+    new_anchor_buy = anchor_buy
     if is_big_move(delta, anchor):
         if delta > 0:
-            arrow, word = "🟢▲", "พุ่งขึ้น"
+            # ทองขึ้น = น่าขาย -> โชว์ราคาร้านรับซื้อคืนก่อน
+            bar, word, trend = "🟢🟢🟢🟢🟢", "ทองพุ่งขึ้น", "📈"
+            hint = "💡 จังหวะน่าขาย"
+            main_label, main_price, main_delta, main_anchor = \
+                "ร้านรับซื้อคืน", shop_buy, delta_buy, anchor_buy
+            sub_label, sub_price = "ราคาขายออก", shop_sell
         else:
-            arrow, word = "🔴▼", "ร่วงลง"
-        pct = (delta / anchor * 100) if anchor else 0
+            # ทองลง = น่าซื้อ -> โชว์ราคาขายออกก่อน
+            bar, word, trend = "🔴🔴🔴🔴🔴", "ทองร่วงลง", "📉"
+            hint = "💡 จังหวะน่าซื้อ"
+            main_label, main_price, main_delta, main_anchor = \
+                "ราคาขายออก", shop_sell, delta, anchor
+            sub_label, sub_price = "ร้านรับซื้อคืน", shop_buy
+        pct = (main_delta / main_anchor * 100) if main_anchor else 0
         send_telegram(
-            f"{arrow} <b>ทอง{word}</b> ({GOLD_TYPE})\n"
-            f"ราคาขายออก: <b>{fmt(shop_sell)}</b> บาท\n"
-            f"เปลี่ยน: <b>{delta:+,.0f}</b> บาท ({pct:+.2f}%)\n"
-            f"จากอ้างอิง {fmt(anchor)}\n"
-            f"ร้านรับซื้อ: {fmt(shop_buy)}\n"
-            f"อัปเดต: {html.escape(updated)}"
+            f"{bar}\n"
+            f"{trend} <b>{word}</b>  ({GOLD_TYPE})\n"
+            f"{bar}\n"
+            f"\n"
+            f"💰 <b>{main_label}</b>\n"
+            f"     <b>{fmt(main_price)}</b> บาท\n"
+            f"\n"
+            f"{trend} <b>เปลี่ยนแปลง</b>\n"
+            f"     <b>{main_delta:+,.0f}</b> บาท  ({pct:+.2f}%)\n"
+            f"     <i>จาก {fmt(main_anchor)}</i>\n"
+            f"\n"
+            f"{hint}\n"
+            f"🏪 {sub_label}: {fmt(sub_price)} บาท\n"
+            f"🕐 {html.escape(updated)}"
         )
-        new_anchor = shop_sell  # เลื่อนอ้างอิงมาที่ราคาปัจจุบัน
+        new_anchor = shop_sell       # เลื่อนอ้างอิงมาที่ราคาปัจจุบัน
+        new_anchor_buy = shop_buy
         print(f"     -> เตือน! เลื่อนอ้างอิงเป็น {fmt(new_anchor)}")
 
     save_state({
         "anchor": new_anchor,
+        "anchor_buy": new_anchor_buy,
         "last_sell": shop_sell,
         "last_buy": shop_buy,
         "last_check": datetime.now().isoformat(timespec="seconds"),
